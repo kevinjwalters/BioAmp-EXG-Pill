@@ -6,6 +6,7 @@
 // products from Upside Down Labs!
 
 // Copyright (c) 2021 Upside Down Labs - contact@upsidedownlabs.tech
+// Copyright (c) 2024 Kevin J. Walters
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +35,28 @@
   #include <Servo.h>
 #endif
 
+#if defined(ARDUINO_UNOR4_WIFI)
+#include "ArduinoGraphics.h"
+#include "Arduino_LED_Matrix.h"
+
+ArduinoLEDMatrix matrix;
+
+#define DISPLAY_WIDTH 12
+#define DISPLAY_HEIGHT 8
+#define DISPLAY_PIXELS (DISPLAY_WIDTH * DISPLAY_HEIGHT)
+
+byte frame[DISPLAY_HEIGHT][DISPLAY_WIDTH] = {
+  { 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0 },
+  { 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0 },
+  { 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1 },
+  { 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0 },
+  { 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0 },
+  { 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1 },
+  { 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0 },
+  { 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0 }
+};
+#endif
+
 #define SAMPLE_RATE 500
 #define BAUD_RATE 115200
 #define INPUT_PIN A0
@@ -47,31 +70,73 @@
 int circular_buffer[BUFFER_SIZE];
 int32_t sum;
 int data_index;
-int flag=0;
+int flag = 0;
 Servo servo;
 
 inline float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+#if defined(ARDUINO_UNOR4_WIFI)
+static void bar_chart(int value) {
+  Serial.println(value);
+
+  if (value >= DISPLAY_WIDTH * DISPLAY_HEIGHT) {
+    memset(frame, 1, sizeof(frame));
+    matrix.renderBitmap(frame, DISPLAY_HEIGHT, DISPLAY_WIDTH);
+    return;
+  }
+  memset(frame, 0, sizeof(frame));
+  if (value <= 0) {
+    matrix.renderBitmap(frame, DISPLAY_HEIGHT, DISPLAY_WIDTH);
+    return;
+  }
+
+  // value is between 1 and 95 inclusive
+  int cols = value / DISPLAY_HEIGHT;
+  int extra_pixels = value % DISPLAY_HEIGHT;
+  int mid_pos = DISPLAY_HEIGHT / 2;
+  int y = mid_pos;
+  int row_offset = 0;
+  for (int row = 0; row < DISPLAY_HEIGHT; row++) {
+    int bar_pixels = cols + ((extra_pixels > 0) ? 1 : 0);
+    memset(frame[y], 1, bar_pixels);
+
+    row_offset = 0 - row_offset;
+    if (row_offset >= 0) { ++row_offset; }
+    y = mid_pos - row_offset;
+
+    if (extra_pixels > 0) {
+      --extra_pixels;
+    }
+  }
+  matrix.renderBitmap(frame, DISPLAY_HEIGHT, DISPLAY_WIDTH);
+}
+#endif
+
+
 void setup() {
   // Serial connection begin
   Serial.begin(BAUD_RATE);
   // Attach servo
   servo.attach(SERVO_PIN);
+#if defined(ARDUINO_UNOR4_WIFI)
+  matrix.begin();
+  matrix.renderBitmap(frame, DISPLAY_HEIGHT, DISPLAY_WIDTH);
+#endif
 }
 
 void loop() {
   //For initial setup only
-  if(flag==0){
+  if( flag==0) {
     Serial.print("Servo is now at ");
     Serial.print(SERVO_MAX);
     Serial.println(" degrees. Place the Servo arm & screw it in place.");
     Serial.println("It is recommended to remove USB while placing servo arm.");
 
-    servo.write(SERVO_MAX); 
+    servo.write(SERVO_MAX);
     delay(10 * 1000);  // 10 second pause
-    flag=1;  
+    flag=1;
   }
   
   // Calculate elapsed time
@@ -94,6 +159,13 @@ void loop() {
                                                     EMG_MIN, EMG_MAX,
                                                     SERVO_MIN, SERVO_MAX)),
                                    SERVO_MIN, SERVO_MAX);
+#if defined(ARDUINO_UNOR4_WIFI)
+    int bar_chart_value = constrain((int)roundf(mapf(envelop,
+                                                     EMG_MIN, EMG_MAX,
+                                                     -0.499f, DISPLAY_PIXELS + 0.499f)),
+                                    0, DISPLAY_PIXELS);
+    bar_chart(bar_chart_value);
+#endif
     servo.write(servo_position);
     Serial.print(signal);
     Serial.print(",");
@@ -149,3 +221,4 @@ float EMGFilter(float input)
   }
   return output;
 }
+
