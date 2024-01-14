@@ -57,13 +57,17 @@ byte frame[DISPLAY_HEIGHT][DISPLAY_WIDTH] = {
 };
 #endif
 
+// 150 samples (300ms at 500sps) oscillates less as mains interference
+// which survives the filter is 15 cycles at 60Hz or 18 cycles at 50Hz
+#define BUFFER_SIZE 150
 #define SAMPLE_RATE 500
 #define BAUD_RATE 115200
 #define INPUT_PIN A0
-#define BUFFER_SIZE 128
 #define SERVO_PIN 9
 #define EMG_MIN 2
 #define EMG_MAX 10
+// #define EMG_MIN 0
+// #define EMG_MAX 1023
 #define SERVO_MIN 90
 #define SERVO_MAX 180
 
