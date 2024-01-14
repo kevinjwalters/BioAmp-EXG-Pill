@@ -83,8 +83,6 @@ inline float mapf(float x, float in_min, float in_max, float out_min, float out_
 
 #if defined(ARDUINO_UNOR4_WIFI)
 static void bar_chart(int value) {
-  Serial.println(value);
-
   if (value >= DISPLAY_WIDTH * DISPLAY_HEIGHT) {
     memset(frame, 1, sizeof(frame));
     matrix.renderBitmap(frame, DISPLAY_HEIGHT, DISPLAY_WIDTH);
